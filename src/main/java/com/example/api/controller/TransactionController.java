@@ -15,7 +15,6 @@ import com.example.api.dto.transaction.TransferDTO;
 import com.example.api.dto.transaction.TransferResponseDTO;
 import com.example.api.dto.transaction.WithdrawDTO;
 import com.example.api.dto.transaction.WithdrawResponseDTO;
-import com.example.api.model.Transaction;
 import com.example.api.model.User;
 import com.example.api.service.TransactionService;
 import com.example.api.service.UserService;

@@ -28,66 +28,70 @@ import com.example.api.service.UserService;
 @RequestMapping("/auth")
 public class JwtAuthenticationController {
 
-    @Autowired
-    private JwtTokenUtil jwtTokenUtil;
+        @Autowired
+        private JwtTokenUtil jwtTokenUtil;
 
-    @Autowired
-    private JwtUserDetailsService userDetailsService;
+        @Autowired
+        private JwtUserDetailsService userDetailsService;
 
-    @Autowired
-    private final UserService userService;
+        @Autowired
+        private final UserService userService;
 
-    @Autowired
-    private final TransactionService transactionService;
+        @Autowired
+        private final TransactionService transactionService;
 
-    public JwtAuthenticationController(UserService userService, TransactionService transactionService) {
-        this.userService = userService;
-        this.transactionService = transactionService;
-    }
-
-    @PostMapping(value = "/login")
-    public ResponseEntity<?> createAuthenticationToken(@RequestBody JwtRequestDTO authenticationRequest,
-            HttpSession session) {
-        session.setMaxInactiveInterval(100);
-
-        if (session.getAttribute("name") != null
-                && !session.getAttribute("name").equals(authenticationRequest.getUsername())) {
-            return ResponseEntity.ok(
-                    new JwtErrorResponseDTO("Please wait, there is someone loggedin!"));
+        public JwtAuthenticationController(UserService userService, TransactionService transactionService) {
+                this.userService = userService;
+                this.transactionService = transactionService;
         }
-        List<String> messages = new ArrayList<String>();
 
-        if (userService.isUsernameExist(authenticationRequest.getUsername())) {
-            CreateUserDTO newUser = new CreateUserDTO(authenticationRequest.getUsername(),
-                    authenticationRequest.getUsername(), authenticationRequest.getUsername());
-            userService.create(newUser);
+        @PostMapping(value = "/login")
+        public ResponseEntity<?> createAuthenticationToken(@RequestBody JwtRequestDTO authenticationRequest,
+                        HttpSession session) {
+                session.setMaxInactiveInterval(100);
+
+                if (session.getAttribute("name") != null) {
+                        if (!session.getAttribute("name").equals(authenticationRequest.getUsername())) {
+                                return ResponseEntity.ok(
+                                                new JwtErrorResponseDTO("Please wait, there is someone loggedin!"));
+                        }
+                }
+                List<String> messages = new ArrayList<String>();
+
+                if (userService.isUsernameExist(authenticationRequest.getUsername())) {
+                        CreateUserDTO newUser = new CreateUserDTO(authenticationRequest.getUsername(),
+                                        authenticationRequest.getUsername(), authenticationRequest.getUsername());
+                        userService.create(newUser);
+                }
+                User user = userService.findUserByUsername(authenticationRequest.getUsername());
+                session.setAttribute("name", authenticationRequest.getUsername());
+
+                messages.add(String.format("Hello, %s!", user.getUsername()));
+                messages.add(transactionService.balanceToString(user.getId()));
+                messages.addAll(transactionService.getOwesDetailToString(user.getId()));
+                return ResponseEntity.ok(
+                                new JwtResponseDTO(
+                                                jwtTokenUtil.generateToken(
+                                                                userDetailsService.loadUserByUsername(
+                                                                                authenticationRequest.getUsername())),
+                                                messages));
         }
-        User user = userService.findUserByUsername(authenticationRequest.getUsername());
-        session.setAttribute("name", authenticationRequest.getUsername());
 
-        messages.add(transactionService.balanceToString(user.getId()));
-        return ResponseEntity.ok(
-                new JwtResponseDTO(
-                        jwtTokenUtil.generateToken(
-                                userDetailsService.loadUserByUsername(authenticationRequest.getUsername())),
-                        messages));
-    }
+        @PostMapping(value = "/logout")
+        public ResponseEntity<?> logout(@AuthenticationPrincipal UserDetails userDetails,
+                        HttpSession session) {
+                User user = userService.findUserByUsername(userDetails.getUsername());
+                // must do something in here for 1 login only
+                if (session.getAttribute("name") != null
+                                && !session.getAttribute("name").equals(user.getUsername())) {
+                        return ResponseEntity.ok(
+                                        new JwtErrorResponseDTO("You are not logged in!"));
+                }
+                session.setAttribute("name", null);
 
-    @PostMapping(value = "/logout")
-    public ResponseEntity<?> logout(@AuthenticationPrincipal UserDetails userDetails,
-            HttpSession session) {
-        User user = userService.findUserByUsername(userDetails.getUsername());
-        // must do something in here for 1 login only
-        if (session.getAttribute("name") != null
-                && !session.getAttribute("name").equals(user.getUsername())) {
-            return ResponseEntity.ok(
-                    new JwtErrorResponseDTO("You are not logged in!"));
+                SecurityContextHolder.getContext().setAuthentication(null);
+                return ResponseEntity.ok(
+                                new JwtLogoutResponseDTO(String.format("Goodbye, %s", user.getUsername())));
         }
-        session.setAttribute("name", null);
-
-        SecurityContextHolder.getContext().setAuthentication(null);
-        return ResponseEntity.ok(
-                new JwtLogoutResponseDTO(String.format("Goodbye, %s", user.getUsername())));
-    }
 
 }

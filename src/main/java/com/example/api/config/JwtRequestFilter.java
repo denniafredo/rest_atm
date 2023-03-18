@@ -56,8 +56,6 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                     response.getWriter().write("{\"error\": \"Not valid user!\"}");
                     return;
                 }
-                System.out.println(username);
-                System.out.println(session.getAttribute("name"));
                 if (!session.getAttribute("name").equals(username) &&
                         session.getAttribute("name") != null) {
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

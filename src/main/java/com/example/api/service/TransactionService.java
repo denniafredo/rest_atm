@@ -9,9 +9,7 @@ import org.springframework.stereotype.Service;
 import com.example.api.config.JwtTokenUtil;
 import com.example.api.dao.TransactionRepository;
 import com.example.api.dto.debt.CreateDebtDTO;
-import com.example.api.dto.transaction.DepositResponseDTO;
-import com.example.api.dto.transaction.TransferResponseDTO;
-import com.example.api.dto.transaction.WithdrawResponseDTO;
+import com.example.api.dto.transaction.ResponseDTO;
 import com.example.api.model.Debt;
 import com.example.api.model.Transaction;
 import com.example.api.model.User;
@@ -58,35 +56,10 @@ public class TransactionService {
         return String.format("Your balance is $%s", getBalance(id));
     }
 
-    public List<Debt> getOwesDetail(Long owesId) {
-        return debtService.findByOwesId(owesId);
-    }
-
-    public List<String> getOwesDetailToString(Long owesId) {
+    public ResponseDTO deposit(User user, Double amount) {
+        ResponseDTO response = new ResponseDTO();
         List<String> messages = new ArrayList<String>();
-        List<Debt> debts = getOwesDetail(owesId);
-        for (Debt debt : debts) {
-            messages.add(String.format("Owed $%s to %s", debt.getAmount(), debt.getOwed().getUsername()));
-        }
-        return messages;
-    }
 
-    public List<Debt> getOwedDetail(Long owesId) {
-        return debtService.findByOwedId(owesId);
-    }
-
-    public List<String> getOwedDetailToString(Long owesId) {
-        List<String> messages = new ArrayList<String>();
-        List<Debt> debts = getOwedDetail(owesId);
-        for (Debt debt : debts) {
-            messages.add(String.format("Owed $%s from %s", debt.getAmount(), debt.getOwed().getUsername()));
-        }
-        return messages;
-    }
-
-    public DepositResponseDTO deposit(User user, Double amount) {
-        DepositResponseDTO response = new DepositResponseDTO();
-        List<String> messages = new ArrayList<String>();
         try {
             Transaction transaction = Transaction.builder()
                     .id(transactionRepository.findNextId())
@@ -96,6 +69,58 @@ public class TransactionService {
                     .status("PAID")
                     .build();// unpaid -> paid on kafka
             transactionRepository.save(transaction);
+
+            // pay dept if exist
+            List<Debt> debts = debtService.findByOwesId(user.getId());
+            double balance = getBalance(user.getId());
+
+            if (debts != null && balance > 0) {
+                for (Debt debt : debts) {
+                    if (balance >= debt.getAmount()) {
+                        double paidAmount = debt.getAmount();
+                        Transaction newTransaction = Transaction.builder()
+                                .id(transactionRepository.findNextId())
+                                .sender(user)
+                                .receiver(debt.getOwed())
+                                .amount(paidAmount)
+                                .type("TRANSFER")
+                                .status("PAID")
+                                .build();
+                        transactionRepository.save(newTransaction);
+
+                        CreateDebtDTO debtDto = CreateDebtDTO.builder()
+                                .owes(user)
+                                .owed(debt.getOwed())
+                                .amount(paidAmount)
+                                .build();
+                        debtService.pay(debtDto);
+
+                        messages.add(
+                                String.format("Transferred $%s to %s", paidAmount, debt.getOwed().getUsername()));
+                    } else {
+                        Transaction newTransaction = Transaction.builder()
+                                .id(transactionRepository.findNextId())
+                                .sender(user)
+                                .receiver(debt.getOwed())
+                                .amount(balance)
+                                .type("TRANSFER")
+                                .status("PAID")
+                                .build();
+                        transactionRepository.save(newTransaction);
+
+                        CreateDebtDTO debtDto = CreateDebtDTO.builder()
+                                .owes(user)
+                                .owed(debt.getOwed())
+                                .amount(balance)
+                                .build();
+                        debtService.pay(debtDto);
+
+                        messages.add(
+                                String.format("Transferred $%s to %s", balance, debt.getOwed().getUsername()));
+                    }
+                    balance = getBalance(user.getId());
+                }
+            }
             messages.add(balanceToString(user.getId()));
         } catch (Exception e) {
             messages.add(String.format("Deposit failed!"));
@@ -106,8 +131,8 @@ public class TransactionService {
         return response;
     }
 
-    public WithdrawResponseDTO withdraw(User user, Double amount) {
-        WithdrawResponseDTO response = new WithdrawResponseDTO();
+    public ResponseDTO withdraw(User user, Double amount) {
+        ResponseDTO response = new ResponseDTO();
         List<String> messages = new ArrayList<String>();
 
         try {
@@ -139,8 +164,8 @@ public class TransactionService {
         return response;
     }
 
-    public TransferResponseDTO transfer(User sender, User receiver, Double amount) {
-        TransferResponseDTO response = new TransferResponseDTO();
+    public ResponseDTO transfer(User sender, User receiver, Double amount) {
+        ResponseDTO response = new ResponseDTO();
         List<String> messages = new ArrayList<String>();
 
         if (sender.getUsername().equals(receiver.getUsername())) {
@@ -187,7 +212,7 @@ public class TransactionService {
             }
             messages.add(balanceToString(sender.getId()));
 
-            messages.addAll(getOwesDetailToString(sender.getId()));
+            messages.addAll(debtService.getAllDetailToString(sender.getId()));
         } catch (Exception e) {
             messages.add(String.format("Transfer failed!"));
             messages.add(e.getMessage());

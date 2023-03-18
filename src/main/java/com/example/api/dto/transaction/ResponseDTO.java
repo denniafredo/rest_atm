@@ -7,6 +7,6 @@ import lombok.Setter;
 
 @Setter
 @Getter
-public class TransferResponseDTO {
+public class ResponseDTO {
     private List<String> message;
 }

@@ -9,6 +9,7 @@ import com.example.api.model.Debt;
 
 import static org.hibernate.internal.CoreLogging.logger;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -44,6 +45,20 @@ public class DebtService {
         return String.format("Success create debt");
     }
 
+    public String pay(CreateDebtDTO debtDTO) {
+        try {
+            Debt debt = findByOwesIdAndOwedId(debtDTO.getOwes().getId(), debtDTO.getOwed().getId());
+            debt.setAmount(debt.getAmount() - debtDTO.getAmount());
+            debtRepository.save(debt);
+
+        } catch (Exception e) {
+            logger(e.getMessage());
+            return String.format("Failed pay debt");
+        }
+
+        return String.format("Success pay debt");
+    }
+
     public List<Debt> findByOwesId(Long owesId) {
         return debtRepository.findByOwesId(owesId);
     }
@@ -54,6 +69,31 @@ public class DebtService {
 
     public Debt findByOwesIdAndOwedId(Long owesId, Long owedId) {
         return debtRepository.findByOwesIdAndOwedId(owesId, owedId);
+    }
+
+    public List<String> getOwesDetailToString(Long owesId) {
+        List<String> messages = new ArrayList<String>();
+        List<Debt> debts = findByOwesId(owesId);
+        for (Debt debt : debts) {
+            messages.add(String.format("Owed $%s to %s", debt.getAmount(), debt.getOwed().getUsername()));
+        }
+        return messages;
+    }
+
+    public List<String> getOwedDetailToString(Long owesId) {
+        List<String> messages = new ArrayList<String>();
+        List<Debt> debts = findByOwedId(owesId);
+        for (Debt debt : debts) {
+            messages.add(String.format("Owed $%s from %s", debt.getAmount(), debt.getOwes().getUsername()));
+        }
+        return messages;
+    }
+
+    public List<String> getAllDetailToString(Long owesId) {
+        List<String> messages = new ArrayList<String>();
+        messages.addAll(getOwesDetailToString(owesId));
+        messages.addAll(getOwedDetailToString(owesId));
+        return messages;
     }
 
     public long findNextId() {

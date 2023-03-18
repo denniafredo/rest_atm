@@ -1,8 +1,6 @@
 package com.example.api.config;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
@@ -18,13 +16,10 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.example.api.dto.jwt.JwtErrorResponseDTO;
+import com.example.api.constant.Constant;
 import com.example.api.service.JwtUserDetailsService;
 import com.example.api.service.UserService;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
-import ch.qos.logback.classic.Logger;
 import io.jsonwebtoken.ExpiredJwtException;
 
 @Component

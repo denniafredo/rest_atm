@@ -5,5 +5,5 @@ public class Constant {
     throw new IllegalStateException("Api constant class");
   }
 
-  public static final Integer TIMEOUT = 100;
+  public static final Integer TIMEOUT = 60;
 }

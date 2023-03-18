@@ -5,7 +5,6 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
 import com.example.api.dto.user.CreateUserDTO;
-import com.example.api.model.User;
 import com.example.api.service.UserService;
 
 @Component
@@ -20,14 +19,14 @@ public class AppBootStrap implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         CreateUserDTO user1 = CreateUserDTO.builder()
-                .username("denni")
-                .password("denni")
+                .username("Alice")
+                .password("Alice")
                 .accountNumber("1")
                 .build();
 
         CreateUserDTO user2 = CreateUserDTO.builder()
-                .username("afredo")
-                .password("afredo")
+                .username("Bob")
+                .password("Bob")
                 .accountNumber("2")
                 .build();
         userService.create(user1);

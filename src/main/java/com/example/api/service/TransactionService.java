@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import com.example.api.config.JwtTokenUtil;
@@ -16,6 +17,9 @@ import com.example.api.model.User;
 
 @Service
 public class TransactionService {
+    @Autowired
+    private KafkaTemplate<String, String> kafkaTemplate;
+
     private final TransactionRepository transactionRepository;
     private final JwtTokenUtil jwtTokenUtil;
     private final UserService userService;
@@ -61,14 +65,17 @@ public class TransactionService {
         List<String> messages = new ArrayList<String>();
 
         try {
+            long nextId = transactionRepository.findNextId();
             Transaction transaction = Transaction.builder()
-                    .id(transactionRepository.findNextId())
+                    .id(nextId)
                     .sender(user)
                     .amount(amount)
                     .type("DEPOSIT")
                     .status("PAID")
                     .build();// unpaid -> paid on kafka
             transactionRepository.save(transaction);
+
+            kafkaTemplate.send("deposit", String.format("%s,%s,%s", nextId, user.getId(), amount));
 
             // pay dept if exist
             List<Debt> debts = debtService.findByOwesId(user.getId());
@@ -122,6 +129,7 @@ public class TransactionService {
                 }
             }
             messages.add(balanceToString(user.getId()));
+            messages.addAll(debtService.getAllDetailToString(user.getId()));
         } catch (Exception e) {
             messages.add(String.format("Deposit failed!"));
             messages.add(String.format("Error: %s", e.getMessage()));
@@ -174,44 +182,64 @@ public class TransactionService {
             return response;
         }
         try {
-            double senderBalance = getBalance(sender.getId());
-            if (senderBalance < amount) {
-                if (senderBalance > 0.0) {
+            Debt owedDebt = debtService.findByOwesIdAndOwedId(receiver.getId(), sender.getId());
+            if (owedDebt != null) { // owed from
+                double owedDeptAmount = owedDebt.getAmount();
+                double paidAmount = 0;
+                if (amount <= owedDeptAmount) {
+                    paidAmount = amount;
+                    amount -= owedDeptAmount;
+                } else {
+                    amount -= owedDeptAmount;
+                    paidAmount = owedDeptAmount;
+                }
+                CreateDebtDTO debtDto = CreateDebtDTO.builder()
+                        .owes(receiver)
+                        .owed(sender)
+                        .amount(paidAmount)
+                        .build();
+                debtService.pay(debtDto);
+            }
+
+            if (amount > 0) {
+                double senderBalance = getBalance(sender.getId());
+                if (senderBalance < amount) {
+                    if (senderBalance > 0.0) {
+                        Transaction transaction = Transaction.builder()
+                                .id(transactionRepository.findNextId())
+                                .sender(sender)
+                                .receiver(receiver)
+                                .amount(senderBalance)
+                                .type("TRANSFER")
+                                .status("PAID")
+                                .build();
+
+                        transactionRepository.save(transaction);
+                        messages.add(String.format("Transferred $%s to %s", senderBalance, receiver.getUsername()));
+                    }
+                    double unpaid = amount - senderBalance;
+                    CreateDebtDTO debtDto = CreateDebtDTO.builder()
+                            .owes(sender)
+                            .owed(receiver)
+                            .amount(unpaid)
+                            .build();
+
+                    debtService.create(debtDto);
+                } else {
                     Transaction transaction = Transaction.builder()
                             .id(transactionRepository.findNextId())
                             .sender(sender)
                             .receiver(receiver)
-                            .amount(senderBalance)
+                            .amount(amount)
                             .type("TRANSFER")
                             .status("PAID")
                             .build();
 
                     transactionRepository.save(transaction);
-                    messages.add(String.format("Transferred $%s to %s", senderBalance, receiver.getUsername()));
+                    messages.add(String.format("Transferred $%s to %s", amount, receiver.getUsername()));
                 }
-                double unpaid = amount - senderBalance;
-                CreateDebtDTO debtDto = CreateDebtDTO.builder()
-                        .owes(sender)
-                        .owed(receiver)
-                        .amount(unpaid)
-                        .build();
-
-                debtService.create(debtDto);
-            } else {
-                Transaction transaction = Transaction.builder()
-                        .id(transactionRepository.findNextId())
-                        .sender(sender)
-                        .receiver(receiver)
-                        .amount(amount)
-                        .type("TRANSFER")
-                        .status("PAID")
-                        .build();
-
-                transactionRepository.save(transaction);
-                messages.add(String.format("Transferred $%s to %s", amount, receiver.getUsername()));
             }
             messages.add(balanceToString(sender.getId()));
-
             messages.addAll(debtService.getAllDetailToString(sender.getId()));
         } catch (Exception e) {
             messages.add(String.format("Transfer failed!"));

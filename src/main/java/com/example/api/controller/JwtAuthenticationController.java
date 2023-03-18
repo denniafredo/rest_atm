@@ -102,7 +102,7 @@ public class JwtAuthenticationController {
 
                 SecurityContextHolder.getContext().setAuthentication(null);
                 return ResponseEntity.ok(
-                                new JwtLogoutResponseDTO(String.format("Goodbye, %s", user.getUsername())));
+                                new JwtLogoutResponseDTO(String.format("Goodbye, %s!", user.getUsername())));
         }
 
 }

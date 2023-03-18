@@ -13,9 +13,9 @@ public interface DebtRepository extends JpaRepository<Debt, Long> {
     @Query(value = "SELECT coalesce(max(d.id),0) +1 FROM Debt d")
     long findNextId();
 
-    List<Debt> findByOwesId(Long owesId);
+    List<Debt> findByOwesIdAndAmountGreaterThan(Long owesId, Double amount);
 
-    List<Debt> findByOwedId(Long owedId);
+    List<Debt> findByOwedIdAndAmountGreaterThan(Long owedId, Double amount);
 
-    Debt findByOwesIdAndOwedId(Long owesId, Long owedId);
+    Debt findByOwesIdAndOwedIdAndAmountGreaterThan(Long owesId, Long owedId, Double amount);
 }

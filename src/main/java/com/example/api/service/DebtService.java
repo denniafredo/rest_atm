@@ -60,15 +60,15 @@ public class DebtService {
     }
 
     public List<Debt> findByOwesId(Long owesId) {
-        return debtRepository.findByOwesId(owesId);
+        return debtRepository.findByOwesIdAndAmountGreaterThan(owesId, 0.0);
     }
 
     public List<Debt> findByOwedId(Long owedId) {
-        return debtRepository.findByOwedId(owedId);
+        return debtRepository.findByOwedIdAndAmountGreaterThan(owedId, 0.0);
     }
 
     public Debt findByOwesIdAndOwedId(Long owesId, Long owedId) {
-        return debtRepository.findByOwesIdAndOwedId(owesId, owedId);
+        return debtRepository.findByOwesIdAndOwedIdAndAmountGreaterThan(owesId, owedId, 0.0);
     }
 
     public List<String> getOwesDetailToString(Long owesId) {

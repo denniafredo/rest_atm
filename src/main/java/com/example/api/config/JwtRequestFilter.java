@@ -51,13 +51,19 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                     response.getWriter().write("{\"error\": \"Not valid user!\"}");
                     return;
                 }
-                if (!session.getAttribute("name").equals(username) &&
-                        session.getAttribute("name") != null) {
+                if (session.getAttribute("name") != null) {
+                    if (!session.getAttribute("name").equals(username)) {
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.getWriter().write("{\"error\": \"Please wait, there is someone loggedin!\"}");
+                        return;
+                    } else {
+                        session.setMaxInactiveInterval(Constant.TIMEOUT);
+                    }
+                } else {
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.getWriter().write("{\"error\": \"Please wait, there is someone loggedin!\"}");
+                    response.getWriter().write("{\"error\": \"Please Login First!\"}");
                     return;
                 }
-
             } catch (IllegalArgumentException e) {
                 logger.error("Unable to get JWT Token");
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -88,6 +94,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
             }
         }
+
         chain.doFilter(request, response);
     }
 }

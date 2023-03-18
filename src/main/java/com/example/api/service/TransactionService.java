@@ -2,6 +2,7 @@ package com.example.api.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -12,6 +13,7 @@ import com.example.api.dao.TransactionRepository;
 import com.example.api.dto.debt.CreateDebtDTO;
 import com.example.api.dto.transaction.ResponseDTO;
 import com.example.api.model.Debt;
+import com.example.api.model.DepositLog;
 import com.example.api.model.Transaction;
 import com.example.api.model.User;
 
@@ -24,24 +26,27 @@ public class TransactionService {
     private final JwtTokenUtil jwtTokenUtil;
     private final UserService userService;
     private final DebtService debtService;
+    private final DepositLogService depositLogService;
 
     @Autowired
     public TransactionService(
             UserService userService,
             DebtService debtService,
             TransactionRepository transactionRepository,
-            JwtTokenUtil jwtTokenUtil) {
+            JwtTokenUtil jwtTokenUtil,
+            DepositLogService depositLogService) {
         this.userService = userService;
         this.debtService = debtService;
         this.transactionRepository = transactionRepository;
         this.jwtTokenUtil = jwtTokenUtil;
+        this.depositLogService = depositLogService;
     }
 
     public Double getBalance(Long id) {
         List<Transaction> transactionsBySender = transactionRepository.findBySenderId(id);
         double totalAmount = 0;
         for (Transaction transaction : transactionsBySender) {
-            if (transaction.getType().equals("DEPOSIT")) {
+            if (transaction.getType().equals("DEPOSIT") && transaction.getStatus().equals("PAID")) {
                 totalAmount += transaction.getAmount();
             } else if (transaction.getType().equals("WITHDRAW")
                     || transaction.getType().equals("TRANSFER")) {
@@ -71,16 +76,59 @@ public class TransactionService {
                     .sender(user)
                     .amount(amount)
                     .type("DEPOSIT")
-                    .status("PAID")
-                    .build();// unpaid -> paid on kafka
+                    .status("UNPAID")
+                    .build();// unpaid -> paid after kafka consume
             transactionRepository.save(transaction);
+            kafkaTemplate.send("deposit", String.format("%s", nextId));
+            messages.add("Processing your deposit...");
+            messages.add("Please check the deposit log periodically");
+        } catch (Exception e) {
+            messages.add(String.format("Deposit failed!"));
+            messages.add(String.format("Error: %s", e.getMessage()));
+        }
 
-            kafkaTemplate.send("deposit", String.format("%s,%s,%s", nextId, user.getId(), amount));
+        response.setMessage(messages);
+        return response;
+    }
+
+    public ResponseDTO depositLog(User user, String status) {
+        ResponseDTO response = new ResponseDTO();
+        List<String> messages = new ArrayList<String>();
+        try {
+            List<DepositLog> depositLogs = depositLogService.findByUserIdAndStatus(user.getId(), status);
+            if (depositLogs != null) {
+                for (DepositLog depositLog : depositLogs) {
+                    messages.add(depositLog.getMessage());
+                    depositLog.setStatus("READ");
+                    depositLogService.create(depositLog);
+                }
+            } else {
+                messages.add(String.format("No new records."));
+            }
+        } catch (Exception e) {
+            messages.add(String.format("Failed to get log!"));
+            messages.add(String.format("Error: %s", e.getMessage()));
+        }
+        response.setMessage(messages);
+        return response;
+    }
+
+    public ResponseDTO depositProccess(Long IdTransaction) {
+        ResponseDTO response = new ResponseDTO();
+        List<String> messages = new ArrayList<String>();
+        DepositLog depositLog = new DepositLog();
+        String message;
+        try {
+            Transaction transaction = transactionRepository.findById(IdTransaction).get();
+            transaction.setStatus("PAID");
+
+            User user = transaction.getSender();
+
+            transactionRepository.save(transaction);
 
             // pay dept if exist
             List<Debt> debts = debtService.findByOwesId(user.getId());
             double balance = getBalance(user.getId());
-
             if (debts != null && balance > 0) {
                 for (Debt debt : debts) {
                     if (balance >= debt.getAmount()) {
@@ -101,9 +149,15 @@ public class TransactionService {
                                 .amount(paidAmount)
                                 .build();
                         debtService.pay(debtDto);
-
-                        messages.add(
-                                String.format("Transferred $%s to %s", paidAmount, debt.getOwed().getUsername()));
+                        message = String.format("Transferred $%s to %s", paidAmount, debt.getOwed().getUsername());
+                        messages.add(message);
+                        depositLog = DepositLog.builder()
+                                .id(depositLogService.findNextId())
+                                .user(user)
+                                .message(message)
+                                .status("UNREAD")
+                                .build();
+                        depositLogService.create(depositLog);
                     } else {
                         Transaction newTransaction = Transaction.builder()
                                 .id(transactionRepository.findNextId())
@@ -122,14 +176,43 @@ public class TransactionService {
                                 .build();
                         debtService.pay(debtDto);
 
-                        messages.add(
-                                String.format("Transferred $%s to %s", balance, debt.getOwed().getUsername()));
+                        message = String.format("Transferred $%s to %s", balance, debt.getOwed().getUsername());
+                        messages.add(message);
+                        depositLog = DepositLog.builder()
+                                .id(depositLogService.findNextId())
+                                .user(user)
+                                .message(message)
+                                .status("UNREAD")
+                                .build();
+                        depositLogService.create(depositLog);
                     }
                     balance = getBalance(user.getId());
                 }
             }
-            messages.add(balanceToString(user.getId()));
-            messages.addAll(debtService.getAllDetailToString(user.getId()));
+
+            message = balanceToString(user.getId());
+            messages.add(message);
+            depositLog = DepositLog.builder()
+                    .id(depositLogService.findNextId())
+                    .user(user)
+                    .message(message)
+                    .status("UNREAD")
+                    .build();
+            depositLogService.create(depositLog);
+
+            List<String> details = debtService.getAllDetailToString(user.getId());
+            messages.addAll(details);
+            if (details != null) {
+                for (String detail : details) {
+                    depositLog = DepositLog.builder()
+                            .id(depositLogService.findNextId())
+                            .user(user)
+                            .message(detail)
+                            .status("UNREAD")
+                            .build();
+                    depositLogService.create(depositLog);
+                }
+            }
         } catch (Exception e) {
             messages.add(String.format("Deposit failed!"));
             messages.add(String.format("Error: %s", e.getMessage()));

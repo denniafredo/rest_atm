@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.example.api.config.JwtTokenUtil;
 import com.example.api.dto.transaction.DepositDTO;
+import com.example.api.dto.transaction.DepositLogDTO;
 import com.example.api.dto.transaction.ResponseDTO;
 import com.example.api.dto.transaction.TransferDTO;
 import com.example.api.dto.transaction.WithdrawDTO;
@@ -39,6 +40,18 @@ public class TransactionController {
             @RequestBody DepositDTO depositDTO) {
         User user = userService.findUserByUsername(userDetails.getUsername());
         return ResponseEntity.ok(transactionService.deposit(user, depositDTO.getAmount()));
+    }
+
+    @PostMapping(value = "/deposit-log")
+    public ResponseEntity<ResponseDTO> depositLog(@AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody DepositLogDTO depositLogDTO) {
+        if (!depositLogDTO.getStatus().equals("UNREAD") && !depositLogDTO.getStatus().equals("READ")) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        User user = userService.findUserByUsername(userDetails
+                .getUsername());
+        return ResponseEntity.ok(transactionService.depositLog(user, depositLogDTO.getStatus()));
     }
 
     @PostMapping(value = "/withdraw")

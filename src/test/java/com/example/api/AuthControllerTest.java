@@ -8,6 +8,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -31,10 +32,13 @@ public class AuthControllerTest {
 
     private String jwtToken;
 
+    @Value(value = "${local.server.port}")
+    String serverPort;
+
     @Before
     @Test
     public void testLoginSuccess() throws URISyntaxException {
-        final String baseUrl = "http://localhost:8080/auth/login/";
+        final String baseUrl = "http://localhost:" + serverPort + "/auth/login/";
         URI uri = new URI(baseUrl);
         HttpHeaders headers = new HttpHeaders();
         // headers.set("X-COM-PERSIST", "true");
@@ -55,7 +59,7 @@ public class AuthControllerTest {
     @Test
     public void testLogoutSuccess() throws URISyntaxException {
 
-        final String baseUrl = "http://localhost:8080/auth/logout/";
+        final String baseUrl = "http://localhost:" + serverPort + "/auth/logout/";
         URI uri = new URI(baseUrl);
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", String.format("Bearer %s", jwtToken));

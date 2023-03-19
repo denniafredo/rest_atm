@@ -6,7 +6,9 @@ import java.util.List;
 import javax.servlet.http.HttpSession;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -14,7 +16,6 @@ import org.springframework.web.bind.annotation.*;
 
 import com.example.api.config.JwtTokenUtil;
 import com.example.api.constant.Constant;
-import com.example.api.dto.jwt.JwtErrorResponseDTO;
 import com.example.api.dto.jwt.JwtLogoutResponseDTO;
 import com.example.api.dto.jwt.JwtRequestDTO;
 import com.example.api.dto.jwt.JwtResponseDTO;
@@ -53,21 +54,7 @@ public class JwtAuthenticationController {
         }
 
         @PostMapping(value = "/login")
-        public ResponseEntity<?> createAuthenticationToken(@RequestBody JwtRequestDTO authenticationRequest,
-                        HttpSession session) {
-
-                if (session.getAttribute("name") != null) {
-                        if (!session.getAttribute("name").equals(authenticationRequest.getUsername())) {
-                                return ResponseEntity.ok(
-                                                new JwtErrorResponseDTO("Please wait, there is someone loggedin!"));
-                        } else {
-                                session.setMaxInactiveInterval(Constant.TIMEOUT);
-                        }
-                } else {
-                        session.setMaxInactiveInterval(Constant.TIMEOUT);
-                        session.setAttribute("name", authenticationRequest.getUsername());
-                }
-
+        public ResponseEntity<?> createAuthenticationToken(@RequestBody JwtRequestDTO authenticationRequest) {
                 List<String> messages = new ArrayList<String>();
 
                 if (userService.isUsernameExist(authenticationRequest.getUsername())) {
@@ -89,18 +76,18 @@ public class JwtAuthenticationController {
         }
 
         @PostMapping(value = "/logout")
-        public ResponseEntity<?> logout(@AuthenticationPrincipal UserDetails userDetails,
-                        HttpSession session) {
+        public ResponseEntity<?> logout(@RequestHeader("Authorization") String authorizationHeader,
+                        @AuthenticationPrincipal UserDetails userDetails) {
                 User user = userService.findUserByUsername(userDetails.getUsername());
-                // must do something in here for 1 login only
-                if (session.getAttribute("name") != null
-                                && !session.getAttribute("name").equals(user.getUsername())) {
-                        return ResponseEntity.ok(
-                                        new JwtErrorResponseDTO("You are not logged in!"));
-                }
-                session.setAttribute("name", null);
 
-                SecurityContextHolder.getContext().setAuthentication(null);
+                String jwtToken = authorizationHeader.substring(7);
+                String username = jwtTokenUtil.getUsernameFromToken(jwtToken);
+
+                if (SecurityContextHolder.getContext().getAuthentication() != null) {
+                        if (SecurityContextHolder.getContext().getAuthentication().getName().equals(username)) {
+                                SecurityContextHolder.getContext().setAuthentication(null);
+                        }
+                }
                 return ResponseEntity.ok(
                                 new JwtLogoutResponseDTO(String.format("Goodbye, %s!", user.getUsername())));
         }

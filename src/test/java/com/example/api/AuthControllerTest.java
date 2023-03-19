@@ -68,7 +68,5 @@ public class AuthControllerTest {
 
         Assert.assertEquals("Goodbye, Alice!", result.getBody().getMessage());
         Assert.assertEquals(200, result.getStatusCodeValue());
-        // Assert.assertEquals(result.getBody().getMessage(), "Goodbye, Alice!");
-
     }
 }

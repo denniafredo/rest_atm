@@ -2,6 +2,7 @@ package com.example.api.bootstrap;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import com.example.api.dto.user.CreateUserDTO;
@@ -18,18 +19,6 @@ public class AppBootStrap implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        CreateUserDTO user1 = CreateUserDTO.builder()
-                .username("Alice")
-                .password("Alice")
-                .accountNumber("1")
-                .build();
-
-        CreateUserDTO user2 = CreateUserDTO.builder()
-                .username("Bob")
-                .password("Bob")
-                .accountNumber("2")
-                .build();
-        userService.create(user1);
-        userService.create(user2);
+        SecurityContextHolder.getContext().setAuthentication(null);
     }
 }

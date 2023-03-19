@@ -16,4 +16,5 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     List<Transaction> findBySenderId(Long sender_id);
 
     List<Transaction> findByReceiverIdAndTypeAndStatus(Long receiver_id, String type, String status);
+
 }

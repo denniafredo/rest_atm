@@ -273,11 +273,17 @@ public class TransactionService {
         ResponseDTO response = new ResponseDTO();
         List<String> messages = new ArrayList<String>();
 
+        if (receiver == null) {
+            messages.add("Receiver is not exist");
+            response.setMessage(messages);
+            return response;
+        }
         if (sender.getUsername().equals(receiver.getUsername())) {
             messages.add(String.format("Can not transfer yourself!"));
             response.setMessage(messages);
             return response;
         }
+
         try {
             Debt owedDebt = debtService.findByOwesIdAndOwedId(receiver.getId(), sender.getId());
             if (owedDebt != null) { // owed from
@@ -350,4 +356,7 @@ public class TransactionService {
         return transactionRepository.findNextId();
     }
 
+    public List<Transaction> findBySenderId(Long id) {
+        return transactionRepository.findBySenderId(id);
+    }
 }

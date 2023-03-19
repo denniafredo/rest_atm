@@ -1,11 +1,11 @@
 package com.example.api.dto.transaction;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.NoArgsConstructor;
 
-@Setter
-@Getter
+@NoArgsConstructor
+@AllArgsConstructor
 @Data
 public class DepositDTO {
     private Double amount;

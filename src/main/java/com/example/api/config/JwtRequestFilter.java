@@ -51,20 +51,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                     response.getWriter().write("{\"error\": \"Not valid user!\"}");
                     return;
                 }
-                // if (session.getAttribute("name") != null) {
-                // if (!session.getAttribute("name").equals(username)) {
-                // response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                // response.getWriter().write("{\"error\": \"Please wait, there is someone
-                // loggedin!\"}");
-                // return;
-                // } else {
-                // session.setMaxInactiveInterval(Constant.TIMEOUT);
-                // }
-                // } else {
-                // response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                // response.getWriter().write("{\"error\": \"Please Login First!\"}");
-                // return;
-                // }
+
             } catch (IllegalArgumentException e) {
                 logger.error("Unable to get JWT Token");
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -81,14 +68,12 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             response.getWriter().write("{\"error\": \"JWT token not found or not valid in request headers\"}");
             return;
         }
-        System.out.println(username);
-        System.out.println(SecurityContextHolder.getContext().getAuthentication());
 
         // Once we get the token validate it.
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+        if (username != null &&
+                SecurityContextHolder.getContext().getAuthentication() == null) {
 
             UserDetails userDetails = this.jwtUserDetailsService.loadUserByUsername(username);
-            System.out.println(userDetails.getUsername());
             if (Boolean.TRUE.equals(jwtTokenUtil.validateToken(jwtToken, userDetails))) {
                 UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(
                         userDetails, null, userDetails.getAuthorities());
@@ -104,6 +89,12 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 return;
             }
         }
+        // if (SecurityContextHolder.getContext().getAuthentication() == null
+        // && !request.getRequestURI().equals("/auth/login")) {
+        // response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        // response.getWriter().write("{\"error\": \"You are not logged in!\"}");
+        // return;
+        // }
 
         chain.doFilter(request, response);
     }

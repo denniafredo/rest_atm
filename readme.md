@@ -12,3 +12,5 @@
 3. localhost:8080/api/withdraw |  @header : Authorization (Bearer : [jwtToken]), @body : amount (Long)
 4. localhost:8080/api/transfer |  @header : Authorization (Bearer : [jwtToken]), @body : transfer (String),amount (Long)
 
+#POSTMAN
+atm-api.postman_collection.json

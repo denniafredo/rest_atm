@@ -43,7 +43,7 @@ public class TransactionController {
     }
 
     @PostMapping(value = "/deposit-log")
-    public ResponseEntity<ResponseDTO> depositLog(@AuthenticationPrincipal UserDetails userDetails,
+    public ResponseEntity<?> depositLog(@AuthenticationPrincipal UserDetails userDetails,
             @RequestBody DepositLogDTO depositLogDTO) {
         if (!depositLogDTO.getStatus().equals("UNREAD") && !depositLogDTO.getStatus().equals("READ")) {
             return ResponseEntity.badRequest().build();

@@ -31,10 +31,14 @@ public class DepositLogService {
     }
 
     public List<DepositLog> findByUserIdAndStatus(Long id, String status) {
-        return depositLogRepository.findByUserIdAndStatus(id, status);
+        return depositLogRepository.findByUserIdAndStatusOrderByBatchDesc(id, status);
     }
 
     public long findNextId() {
         return depositLogRepository.findNextId();
+    }
+
+    public long findNextBatchId() {
+        return depositLogRepository.findNextBatchId();
     }
 }

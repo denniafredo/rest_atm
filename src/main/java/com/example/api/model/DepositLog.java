@@ -25,4 +25,6 @@ public class DepositLog extends BaseEntity {
 
     private String status;
 
+    private Long batch;
+
 }

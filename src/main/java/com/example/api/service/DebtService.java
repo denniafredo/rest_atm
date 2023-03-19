@@ -50,7 +50,6 @@ public class DebtService {
             Debt debt = findByOwesIdAndOwedId(debtDTO.getOwes().getId(), debtDTO.getOwed().getId());
             debt.setAmount(debt.getAmount() - debtDTO.getAmount());
             debtRepository.save(debt);
-            System.out.println(debt.getAmount());
         } catch (Exception e) {
             logger(e.getMessage());
             return String.format("Failed pay debt");

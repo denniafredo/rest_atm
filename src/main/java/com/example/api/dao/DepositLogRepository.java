@@ -13,5 +13,8 @@ public interface DepositLogRepository extends JpaRepository<DepositLog, Long> {
     @Query(value = "SELECT coalesce(max(d.id),0) +1 FROM DepositLog d")
     long findNextId();
 
-    List<DepositLog> findByUserIdAndStatus(Long id, String status);
+    @Query(value = "SELECT coalesce(max(d.batch),0) +1 FROM DepositLog d")
+    long findNextBatchId();
+
+    List<DepositLog> findByUserIdAndStatusOrderByBatchDesc(Long id, String status);
 }

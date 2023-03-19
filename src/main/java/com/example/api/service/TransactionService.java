@@ -2,7 +2,9 @@ package com.example.api.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Service;
 import com.example.api.config.JwtTokenUtil;
 import com.example.api.dao.TransactionRepository;
 import com.example.api.dto.debt.CreateDebtDTO;
+import com.example.api.dto.transaction.DepositLogResponseDTO;
 import com.example.api.dto.transaction.ResponseDTO;
 import com.example.api.model.Debt;
 import com.example.api.model.DepositLog;
@@ -91,14 +94,20 @@ public class TransactionService {
         return response;
     }
 
-    public ResponseDTO depositLog(User user, String status) {
-        ResponseDTO response = new ResponseDTO();
+    public List<DepositLogResponseDTO> depositLog(User user, String status) {
+        List<DepositLogResponseDTO> logs = new ArrayList<DepositLogResponseDTO>();
         List<String> messages = new ArrayList<String>();
         try {
             List<DepositLog> depositLogs = depositLogService.findByUserIdAndStatus(user.getId(), status);
             if (depositLogs != null) {
+                Map<Long, List<String>> groupedMessages = depositLogs.stream()
+                        .collect(Collectors.groupingBy(DepositLog::getBatch,
+                                Collectors.mapping(DepositLog::getMessage, Collectors.toList())));
+                logs = groupedMessages.entrySet().stream()
+                        .map(entry -> new DepositLogResponseDTO(entry.getKey(), entry.getValue()))
+                        .collect(Collectors.toList());
+
                 for (DepositLog depositLog : depositLogs) {
-                    messages.add(depositLog.getMessage());
                     depositLog.setStatus("READ");
                     depositLogService.create(depositLog);
                 }
@@ -109,14 +118,14 @@ public class TransactionService {
             messages.add(String.format("Failed to get log!"));
             messages.add(String.format("Error: %s", e.getMessage()));
         }
-        response.setMessage(messages);
-        return response;
+        return logs;
     }
 
     public ResponseDTO depositProccess(Long IdTransaction) {
         ResponseDTO response = new ResponseDTO();
         List<String> messages = new ArrayList<String>();
         DepositLog depositLog = new DepositLog();
+        Long batchId = depositLogService.findNextBatchId();
         String message;
         try {
             Transaction transaction = transactionRepository.findById(IdTransaction).get();
@@ -149,6 +158,7 @@ public class TransactionService {
                                 .amount(paidAmount)
                                 .build();
                         debtService.pay(debtDto);
+
                         message = String.format("Transferred $%s to %s", paidAmount, debt.getOwed().getUsername());
                         messages.add(message);
                         depositLog = DepositLog.builder()
@@ -156,6 +166,7 @@ public class TransactionService {
                                 .user(user)
                                 .message(message)
                                 .status("UNREAD")
+                                .batch(batchId)
                                 .build();
                         depositLogService.create(depositLog);
                     } else {
@@ -183,6 +194,7 @@ public class TransactionService {
                                 .user(user)
                                 .message(message)
                                 .status("UNREAD")
+                                .batch(batchId)
                                 .build();
                         depositLogService.create(depositLog);
                     }
@@ -197,6 +209,7 @@ public class TransactionService {
                     .user(user)
                     .message(message)
                     .status("UNREAD")
+                    .batch(batchId)
                     .build();
             depositLogService.create(depositLog);
 
@@ -209,6 +222,7 @@ public class TransactionService {
                             .user(user)
                             .message(detail)
                             .status("UNREAD")
+                            .batch(batchId)
                             .build();
                     depositLogService.create(depositLog);
                 }
